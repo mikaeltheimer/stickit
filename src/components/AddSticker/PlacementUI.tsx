@@ -1,21 +1,25 @@
 'use client'
 
 interface PlacementUIProps {
-  mode: 'suggestions' | 'manual'
-  activeIdx: number
-  totalCandidates: number
+  hasPosition: boolean
   canConfirm: boolean
-  manualValid: boolean | null
-  onModeChange: (m: 'suggestions' | 'manual') => void
-  onPrev: () => void
-  onNext: () => void
+  rotation: number
+  scale: number
+  positionIndex: number
+  totalPositions: number
+  onRotationChange: (r: number) => void
+  onScaleChange: (s: number) => void
+  onPositionChange: (i: number) => void
   onConfirm: () => void
   onCancel: () => void
+  isMobile: boolean
 }
 
 export default function PlacementUI({
-  mode, activeIdx, totalCandidates, canConfirm, manualValid,
-  onModeChange, onPrev, onNext, onConfirm, onCancel,
+  hasPosition, canConfirm, rotation, scale,
+  positionIndex, totalPositions,
+  onRotationChange, onScaleChange, onPositionChange,
+  onConfirm, onCancel, isMobile,
 }: PlacementUIProps) {
   return (
     <>
@@ -30,52 +34,19 @@ export default function PlacementUI({
         borderRadius: 100,
         padding: '8px 20px',
         display: 'flex', alignItems: 'center', gap: 16,
+        whiteSpace: 'nowrap',
       }}>
-        {/* Mode toggle */}
-        <div style={{
-          display: 'flex', gap: 4,
-          background: 'rgba(255,255,255,0.04)',
-          borderRadius: 100, padding: 3,
+        <span style={{
+          fontSize: 11, color: 'rgba(255,255,255,0.35)',
+          letterSpacing: '0.08em', textTransform: 'uppercase',
         }}>
-          {(['suggestions', 'manual'] as const).map(m => (
-            <button
-              key={m}
-              onClick={() => onModeChange(m)}
-              style={{
-                borderRadius: 100, border: 'none',
-                padding: '5px 14px', fontSize: 11,
-                fontFamily: 'inherit', letterSpacing: '0.04em',
-                cursor: 'pointer',
-                background: mode === m ? 'rgba(232,255,71,0.15)' : 'transparent',
-                color: mode === m ? '#E8FF47' : '#7A756E',
-                transition: 'all 0.15s',
-              }}
-            >
-              {m === 'suggestions' ? '✦ Suggestions' : '✎ Manual'}
-            </button>
-          ))}
-        </div>
+          {hasPosition
+            ? '✓ Position ready — adjust and confirm'
+            : 'Computing placement zone…'}
+        </span>
 
         <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
 
-        {/* Status */}
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.06em' }}>
-          {mode === 'suggestions' && totalCandidates > 0 && (
-            `Position ${activeIdx + 1} of ${totalCandidates}`
-          )}
-          {mode === 'suggestions' && totalCandidates === 0 && (
-            <span style={{ color: '#FF2D78' }}>No positions found</span>
-          )}
-          {mode === 'manual' && manualValid === null && 'Click to place'}
-          {mode === 'manual' && manualValid === true && (
-            <span style={{ color: '#00FF9C' }}>Valid position ✓</span>
-          )}
-          {mode === 'manual' && manualValid === false && (
-            <span style={{ color: '#FF2D78' }}>Invalid position</span>
-          )}
-        </div>
-
-        {/* Cancel */}
         <button
           onClick={onCancel}
           style={{
@@ -96,29 +67,72 @@ export default function PlacementUI({
       <div style={{
         position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
         zIndex: 300,
-        display: 'flex', alignItems: 'center', gap: 10,
+        background: 'rgba(15,14,13,0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 20,
+        padding: '16px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        minWidth: 340,
       }}>
-        {/* Suggestion nav */}
-        {mode === 'suggestions' && (
-          <>
-            <NavBtn onClick={onPrev} disabled={activeIdx === 0}>←</NavBtn>
-            <NavBtn onClick={onNext} disabled={activeIdx >= totalCandidates - 1}>→</NavBtn>
-          </>
-        )}
+
+        {/* Position along perimeter */}
+        <SliderRow
+          label="Position"
+          value={positionIndex}
+          min={0}
+          max={totalPositions - 1}
+          step={1}
+          displayValue={`${Math.round((positionIndex / totalPositions) * 100)}%`}
+          accentColor="#00CFFF"
+          onChange={onPositionChange}
+          hint={isMobile ? 'drag to move along the wall' : 'drag to move along the wall'}
+        />
+
+        {/* Rotation */}
+        <SliderRow
+          label="Rotation"
+          value={rotation}
+          min={-45}
+          max={45}
+          step={1}
+          displayValue={`${rotation > 0 ? '+' : ''}${rotation}°`}
+          accentColor="#E8FF47"
+          onChange={onRotationChange}
+          hint={isMobile ? 'or twist with two fingers' : 'or use scroll wheel'}
+          centerTick
+        />
+
+        {/* Scale */}
+        <SliderRow
+          label="Size"
+          value={Math.round(scale * 100)}
+          min={95}
+          max={115}
+          step={1}
+          displayValue={`${Math.round(scale * 100)}%`}
+          accentColor="#00FF9C"
+          onChange={v => onScaleChange(v / 100)}
+          hint={isMobile ? 'or pinch with two fingers' : undefined}
+        />
 
         {/* Confirm */}
         <button
           onClick={canConfirm ? onConfirm : undefined}
           style={{
-            background: canConfirm ? '#E8FF47' : 'rgba(232,255,71,0.2)',
-            color: '#0F0E0D',
+            background: canConfirm ? '#E8FF47' : 'rgba(232,255,71,0.15)',
+            color: canConfirm ? '#0F0E0D' : 'rgba(232,255,71,0.4)',
             border: 'none', borderRadius: 100,
-            padding: '12px 28px', fontSize: 13,
+            padding: '12px 20px', fontSize: 14,
             fontFamily: "'Bebas Neue', Impact, sans-serif",
             letterSpacing: '0.1em',
             cursor: canConfirm ? 'pointer' : 'not-allowed',
             transition: 'all 0.2s',
-            boxShadow: canConfirm ? '0 0 20px rgba(232,255,71,0.3)' : 'none',
+            marginTop: 2,
+            boxShadow: canConfirm ? '0 0 20px rgba(232,255,71,0.25)' : 'none',
           }}
           onMouseEnter={e => { if (canConfirm) e.currentTarget.style.background = '#f0ff6a' }}
           onMouseLeave={e => { if (canConfirm) e.currentTarget.style.background = '#E8FF47' }}
@@ -126,45 +140,71 @@ export default function PlacementUI({
           Confirm placement →
         </button>
       </div>
-
-      {/* Keyboard hint */}
-      {mode === 'suggestions' && totalCandidates > 0 && (
-        <div style={{
-          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 300,
-          fontSize: 10, color: 'rgba(255,255,255,0.15)',
-          letterSpacing: '0.1em', textTransform: 'uppercase',
-          pointerEvents: 'none',
-        }}>
-          ← → arrow keys to navigate
-        </div>
-      )}
     </>
   )
 }
 
-function NavBtn({ onClick, disabled, children }: {
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
+// ── Shared slider row ─────────────────────────────────────────────────────────
+function SliderRow({
+  label, value, min, max, step, displayValue, accentColor,
+  onChange, hint, centerTick,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  displayValue: string
+  accentColor: string
+  onChange: (v: number) => void
+  hint?: string
+  centerTick?: boolean
 }) {
   return (
-    <button
-      onClick={disabled ? undefined : onClick}
-      style={{
-        background: 'rgba(15,14,13,0.85)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 100, width: 42, height: 42,
-        color: disabled ? 'rgba(255,255,255,0.15)' : '#F0EDE8',
-        fontSize: 18, cursor: disabled ? 'not-allowed' : 'pointer',
-        fontFamily: 'inherit', transition: 'all 0.15s',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)' }}
-      onMouseLeave={e => { if (!disabled) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
-    >
-      {children}
-    </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{
+          fontSize: 10, color: 'rgba(255,255,255,0.3)',
+          letterSpacing: '0.1em', textTransform: 'uppercase',
+        }}>
+          {label}
+        </span>
+        <span style={{
+          fontSize: 11, color: accentColor,
+          fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em',
+        }}>
+          {displayValue}
+        </span>
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <input
+          type="range"
+          min={min} max={max} step={step}
+          value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          style={{ width: '100%', accentColor, cursor: 'pointer' }}
+        />
+        {centerTick && (
+          <div style={{
+            position: 'absolute',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 1, height: 8,
+            background: `${accentColor}55`,
+            pointerEvents: 'none',
+          }} />
+        )}
+      </div>
+
+      {hint && (
+        <div style={{
+          fontSize: 10, color: 'rgba(255,255,255,0.15)',
+          letterSpacing: '0.06em',
+        }}>
+          {hint}
+        </div>
+      )}
+    </div>
   )
 }

@@ -94,29 +94,32 @@ export async function POST(req: NextRequest) {
   const candidate = { ...body, bbox_factor: BBOX_FACTOR }
   const candidateBbox = effectiveBbox(candidate)
 
-  // ── Validation collision ─────────────────────────────────────────────────
-  if (existing && existing.length > 0) {
-    // 1. Ne doit pas recouvrir un sticker existant
+  // Vérifier collision — avec tolérance de chevauchement intentionnel
+    const OVERLAP_TOLERANCE = 0.3 // 30% de chevauchement autorisé
+
     for (const s of existing) {
-      if (overlaps(candidateBbox, effectiveBbox(s))) {
+      const aLeft   = body.x - (body.width  * BBOX_FACTOR) / 2
+      const aRight  = body.x + (body.width  * BBOX_FACTOR) / 2
+      const aTop    = body.y - (body.height * BBOX_FACTOR) / 2
+      const aBottom = body.y + (body.height * BBOX_FACTOR) / 2
+
+      const bLeft   = s.x - (s.width  * s.bbox_factor) / 2
+      const bRight  = s.x + (s.width  * s.bbox_factor) / 2
+      const bTop    = s.y - (s.height * s.bbox_factor) / 2
+      const bBottom = s.y + (s.height * s.bbox_factor) / 2
+
+      const overlapX = Math.max(0, Math.min(aRight, bRight) - Math.max(aLeft, bLeft))
+      const overlapY = Math.max(0, Math.min(aBottom, bBottom) - Math.max(aTop, bTop))
+      const overlapArea = overlapX * overlapY
+      const aArea = (aRight - aLeft) * (aBottom - aTop)
+      const bArea = (bRight - bLeft) * (bBottom - bTop)
+      const minArea = Math.min(aArea, bArea)
+
+      // Reject only if overlap exceeds tolerance
+      if (minArea > 0 && overlapArea / minArea > OVERLAP_TOLERANCE) {
         return NextResponse.json({ error: 'Position overlaps existing sticker' }, { status: 409 })
       }
     }
-
-    // 2. Doit toucher au moins un sticker existant
-    const touchesOne = existing.some(s => touches(candidate, s))
-    if (!touchesOne) {
-      return NextResponse.json({ error: 'Sticker must touch at least one existing sticker' }, { status: 409 })
-    }
-
-    // 3. Contrainte centroïde — forme organique
-    const centroidX = existing.reduce((sum, s) => sum + s.x, 0) / existing.length
-    const centroidY = existing.reduce((sum, s) => sum + s.y, 0) / existing.length
-    const distToCentroid = Math.hypot(body.x - centroidX, body.y - centroidY)
-    if (distToCentroid > MAX_CENTROID_DISTANCE) {
-      return NextResponse.json({ error: 'Position too far from the cluster' }, { status: 409 })
-    }
-  }
 
   // ── IP hash pour rate limiting ───────────────────────────────────────────
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown'

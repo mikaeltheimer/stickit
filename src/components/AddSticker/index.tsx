@@ -18,6 +18,8 @@ interface PlacementState {
 
 export interface PlacementModeData {
   imageUrl: string
+  naturalWidth: number
+  naturalHeight: number
   stickers: Sticker[]
   onConfirm: (p: PlacementState) => void
   onCancel: () => void
@@ -85,22 +87,37 @@ export default function AddSticker({
 
   const handleStep3 = (data: StickerInfos) => {
     setInfos(data)
-    // Close modal, enter placement mode on canvas
-    setIsOpen(false)
-    onEnterPlacement({
-      imageUrl: finalUrl!,
-      stickers,
-      onConfirm: (p) => {
-        setPosition(p)
-        setStep(5)
-        setIsOpen(true)
-      },
-      onCancel: () => {
-        onExitPlacement()
-        setStep(3)
-        setIsOpen(true)
-      },
-    })
+
+    // Calculer les dimensions réelles de l'image
+    const img = new Image()
+    img.onload = () => {
+      const BASE = 140
+      const ratio = img.naturalWidth / img.naturalHeight
+      let w: number, h: number
+      if (ratio >= 1) {
+        w = BASE; h = Math.round(BASE / ratio)
+      } else {
+        h = BASE; w = Math.round(BASE * ratio)
+      }
+      setIsOpen(false)
+      onEnterPlacement({
+        imageUrl: finalUrl!,
+        naturalWidth: w,
+        naturalHeight: h,
+        stickers,
+        onConfirm: (p) => {
+          setPosition(p)
+          setStep(5)
+          setIsOpen(true)
+        },
+        onCancel: () => {
+          onExitPlacement()
+          setStep(3)
+          setIsOpen(true)
+        },
+      })
+    }
+    img.src = finalUrl!
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -187,26 +204,44 @@ export default function AddSticker({
 
           {step === 5 && finalUrl && infos && position && (
             <Step5Confirm
-              imageUrl={finalUrl} infos={infos}
-              tags={tags} position={position}
+              imageUrl={finalUrl}
+              infos={infos}
+              tags={tags}
+              position={position}
               isSubmitting={isSubmitting}
               onConfirm={handleSubmit}
               onBack={() => {
-                setIsOpen(false)
-                onEnterPlacement({
-                  imageUrl: finalUrl!,
-                  stickers,
-                  onConfirm: (p) => {
-                    setPosition(p)
-                    setStep(5)
-                    setIsOpen(true)
-                  },
-                  onCancel: () => {
-                    onExitPlacement()
-                    setStep(3)
-                    setIsOpen(true)
-                  },
-                })
+                const img = new Image()
+                img.onload = () => {
+                  const BASE = 140
+                  const ratio = img.naturalWidth / img.naturalHeight
+                  let w: number, h: number
+                  if (ratio >= 1) {
+                    w = BASE
+                    h = Math.round(BASE / ratio)
+                  } else {
+                    h = BASE
+                    w = Math.round(BASE * ratio)
+                  }
+                  setIsOpen(false)
+                  onEnterPlacement({
+                    imageUrl: finalUrl!,
+                    naturalWidth: w,
+                    naturalHeight: h,
+                    stickers,
+                    onConfirm: (p) => {
+                      setPosition(p)
+                      setStep(5)
+                      setIsOpen(true)
+                    },
+                    onCancel: () => {
+                      onExitPlacement()
+                      setStep(3)
+                      setIsOpen(true)
+                    },
+                  })
+                }
+                img.src = finalUrl!
               }}
             />
           )}
