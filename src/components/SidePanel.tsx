@@ -6,10 +6,12 @@ interface SidePanelProps {
   sticker: Sticker | null
   tags: TagReference[]
   locale: Locale
+  activeTag: string | null
   onClose: () => void
+  onTagFilter: (slug: string) => void
 }
 
-export default function SidePanel({ sticker, tags, locale, onClose }: SidePanelProps) {
+export default function SidePanel({ sticker, tags, locale, activeTag, onClose, onTagFilter }: SidePanelProps) {
   const isOpen = sticker !== null
 
   const getTagLabel = (slug: string) => {
@@ -20,8 +22,10 @@ export default function SidePanel({ sticker, tags, locale, onClose }: SidePanelP
 
   return (
     <div
-      className="fixed top-0 right-0 h-full z-50 flex flex-col"
       style={{
+        position: 'fixed', top: 0, right: 0,
+        height: '100%', zIndex: 50,
+        display: 'flex', flexDirection: 'column',
         width: '340px',
         background: '#161513',
         borderLeft: '2px solid rgba(255,45,120,0.65)',
@@ -30,38 +34,31 @@ export default function SidePanel({ sticker, tags, locale, onClose }: SidePanelP
         transition: 'transform 0.38s cubic-bezier(0.22,1,0.36,1)',
       }}
     >
-      {/* Stripe colorée — couleur dominante injectée plus tard */}
+      {/* Stripe */}
       <div style={{ height: '3px', background: '#FF2D78', flexShrink: 0 }} />
 
-      {/* Bouton fermer */}
+      {/* Close */}
       <button
         onClick={onClose}
-        className="absolute top-5 right-5 z-10 flex items-center justify-center"
         style={{
-          width: 30, height: 30,
-          background: '#1E1C1A',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: '50%',
-          color: '#7A756E',
-          fontSize: 13,
-          cursor: 'pointer',
+          position: 'absolute', top: 20, right: 20, zIndex: 10,
+          width: 30, height: 30, background: '#1E1C1A',
+          border: '1px solid rgba(255,255,255,0.07)', borderRadius: '50%',
+          color: '#7A756E', fontSize: 13, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
+        onMouseEnter={e => e.currentTarget.style.color = '#F0EDE8'}
+        onMouseLeave={e => e.currentTarget.style.color = '#7A756E'}
       >
         ✕
       </button>
 
       {/* Image */}
-      <div
-        className="flex items-center justify-center flex-shrink-0"
-        style={{
-          width: '100%',
-          aspectRatio: '1/1',
-          background: '#1E1C1A',
-          padding: 36,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
+      <div style={{
+        width: '100%', aspectRatio: '1/1', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#1E1C1A', padding: 36, position: 'relative', overflow: 'hidden',
+      }}>
         {sticker && (
           <img
             src={sticker.image_url}
@@ -72,26 +69,23 @@ export default function SidePanel({ sticker, tags, locale, onClose }: SidePanelP
       </div>
 
       {/* Body */}
-      <div className="flex flex-col flex-1 overflow-y-auto" style={{ padding: '28px 24px 32px', gap: 20 }}>
+      <div style={{
+        padding: '28px 24px 32px', overflowY: 'auto', flex: 1,
+        display: 'flex', flexDirection: 'column', gap: 20,
+      }}>
         {sticker && (
           <>
             <div>
               <div style={{
                 fontFamily: "'Bebas Neue', Impact, sans-serif",
-                fontSize: 28,
-                color: '#00FF9C',
-                lineHeight: 1,
-                letterSpacing: '0.03em',
+                fontSize: 28, color: '#00FF9C', lineHeight: 1, letterSpacing: '0.03em',
                 textShadow: '0 0 16px rgba(0,255,156,0.35)',
               }}>
                 {sticker.author}
               </div>
               <div style={{
-                fontSize: 11,
-                color: '#7A756E',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                marginTop: 4,
+                fontSize: 11, color: '#7A756E', textTransform: 'uppercase',
+                letterSpacing: '0.1em', marginTop: 4,
               }}>
                 {new Date(sticker.created_at).toLocaleDateString(
                   locale === 'fr' ? 'fr-CA' : 'en-CA',
@@ -108,42 +102,102 @@ export default function SidePanel({ sticker, tags, locale, onClose }: SidePanelP
 
             {sticker.message && (
               <div style={{
-                fontSize: 14,
-                color: '#B0AA9F',
-                lineHeight: 1.7,
-                fontWeight: 300,
-                fontStyle: 'italic',
+                fontSize: 14, color: '#B0AA9F', lineHeight: 1.7,
+                fontWeight: 300, fontStyle: 'italic',
               }}>
                 {sticker.message}
               </div>
             )}
 
+            {/* Tags — cliquables */}
             {sticker.tags.length > 0 && (
-              <div className="flex flex-wrap" style={{ gap: 6 }}>
-                {sticker.tags.map(slug => (
-                  <span key={slug} style={{
-                    fontSize: 10,
-                    color: '#E8FF47',
-                    border: '1px solid rgba(232,255,71,0.3)',
-                    borderRadius: 100,
-                    padding: '3px 10px',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}>
-                    {getTagLabel(slug)}
+              <div>
+                <div style={{
+                  fontSize: 10, color: 'rgba(255,255,255,0.25)',
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}>
+                  {locale === 'fr' ? 'Étiquettes' : 'Tags'}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {sticker.tags.map(slug => {
+                    const isActive = activeTag === slug
+                    return (
+                      <button
+                        key={slug}
+                        onClick={() => onTagFilter(slug)}
+                        style={{
+                          fontSize: 10,
+                          color: isActive ? '#0F0E0D' : '#E8FF47',
+                          background: isActive ? '#E8FF47' : 'transparent',
+                          border: `1px solid ${isActive ? '#E8FF47' : 'rgba(232,255,71,0.3)'}`,
+                          borderRadius: 100,
+                          padding: '4px 12px',
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => {
+                          if (!isActive) e.currentTarget.style.background = 'rgba(232,255,71,0.1)'
+                        }}
+                        onMouseLeave={e => {
+                          if (!isActive) e.currentTarget.style.background = 'transparent'
+                        }}
+                      >
+                        {getTagLabel(slug)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Active tag indicator */}
+            {activeTag && !sticker.tags.includes(activeTag) && (
+              <div style={{
+                fontSize: 11, color: '#7A756E',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 8, padding: '10px 14px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <span>
+                  Filtering by <span style={{ color: '#E8FF47' }}>
+                    {getTagLabel(activeTag)}
                   </span>
-                ))}
+                </span>
+                <button
+                  onClick={() => onTagFilter(activeTag)}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: '#7A756E', cursor: 'pointer',
+                    fontSize: 11, fontFamily: 'inherit',
+                    padding: 0,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#F0EDE8'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#7A756E'}
+                >
+                  clear ✕
+                </button>
               </div>
             )}
 
             {sticker.url && (
-              <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{
+                marginTop: 'auto', paddingTop: 20,
+                borderTop: '1px solid rgba(255,255,255,0.07)',
+              }}>
                 <a
                   href={sticker.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center"
-                  style={{ gap: 7, fontSize: 12, color: '#7A756E', textDecoration: 'none', letterSpacing: '0.04em' }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                    fontSize: 12, color: '#7A756E', textDecoration: 'none',
+                    letterSpacing: '0.04em',
+                  }}
                   onMouseEnter={e => (e.currentTarget.style.color = '#E8FF47')}
                   onMouseLeave={e => (e.currentTarget.style.color = '#7A756E')}
                 >

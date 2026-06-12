@@ -6,6 +6,7 @@ import SidePanel from './SidePanel'
 import HUD from './HUD'
 import AddSticker, { PlacementModeData } from './AddSticker'
 import PlacementUI from './AddSticker/PlacementUI'
+import TagFilter from './TagFilter'
 
 interface WallProps {
   initialStickers: Sticker[]
@@ -100,6 +101,7 @@ export default function Wall({ initialStickers, tags, locale }: WallProps) {
   const [tx, setTx] = useState(0)
   const [ty, setTy] = useState(0)
   const [activeSticker, setActiveSticker] = useState<Sticker | null>(null)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
 
   // Placement mode
   const [placementData, setPlacementData] = useState<PlacementModeData | null>(null)
@@ -341,8 +343,15 @@ export default function Wall({ initialStickers, tags, locale }: WallProps) {
               position: 'absolute', left: s.x, top: s.y, width: s.width, height: s.height,
               transform: `translate(-50%,-50%) rotate(${s.rotation}deg)`,
               cursor: isPlacing ? 'default' : 'pointer',
-              opacity: isPlacing ? 0.5 : [1, 0.95, 0.97, 0.93, 1, 0.96][idx % 6],
-              transition: 'opacity 0.3s ease',
+              opacity: isPlacing
+                ? 0.5
+                : activeTag
+                  ? s.tags.includes(activeTag) ? 1 : 0.12
+                  : [1, 0.95, 0.97, 0.93, 1, 0.96][idx % 6],
+              filter: activeTag && s.tags.includes(activeTag)
+                ? 'drop-shadow(0 0 8px rgba(232,255,71,0.5))'
+                : 'none',
+                transition: 'opacity 0.3s ease',
               zIndex: activeSticker?.id === s.id ? 20 : 1,
             }}
           >
@@ -405,9 +414,23 @@ export default function Wall({ initialStickers, tags, locale }: WallProps) {
               onZoomOut={() => zoomAt(window.innerWidth / 2, window.innerHeight / 2, scaleRef.current * 0.8)}
               onFit={() => fitView(stickers, activeSticker !== null)}
             />
+            <TagFilter
+              tags={tags}
+              stickers={stickers}
+              activeTag={activeTag}
+              locale={locale}
+              onTagFilter={(slug) => setActiveTag(slug)}
+            />
           </div>
           <div id="panel">
-            <SidePanel sticker={activeSticker} tags={tags} locale={locale} onClose={() => setActiveSticker(null)} />
+            <SidePanel
+              sticker={activeSticker}
+              tags={tags}
+              locale={locale}
+              activeTag={activeTag}
+              onClose={() => setActiveSticker(null)}
+              onTagFilter={(slug) => setActiveTag(prev => prev === slug ? null : slug)}
+            />
           </div>
         </>
       )}
